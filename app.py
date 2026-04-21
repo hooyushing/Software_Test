@@ -60,7 +60,7 @@ if st.button("Generate QA Report", type="primary"):
             with st.spinner("Analyzing requirements and writing test cases... ⏳"):
                 # Call Gemini API using the new syntax
                 response = client.models.generate_content(
-                    model='gemini-1.5-pro',
+                    model='gemini-3.1-pro',
                     contents=full_prompt
                 )
             
