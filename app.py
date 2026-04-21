@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 
 # --- UI Configuration ---
 st.set_page_config(page_title="QA Test Case Generator", page_icon="🧪", layout="centered")
@@ -22,7 +22,6 @@ requirements_text = ""
 if input_method == "Upload .txt file":
     uploaded_file = st.file_uploader("Choose a requirements file", type=["txt"])
     if uploaded_file is not None:
-        # Read and decode the file
         requirements_text = uploaded_file.getvalue().decode("utf-8")
         with st.expander("Preview Uploaded Requirements"):
             st.write(requirements_text)
@@ -38,9 +37,8 @@ if st.button("Generate QA Report", type="primary"):
         st.error("⚠️ Please provide some requirements to analyze.")
     else:
         try:
-            # Configure API
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-1.5-pro')
+            # Configure the NEW client
+            client = genai.Client(api_key=api_key)
             
             system_prompt = """
             You are a Senior Quality Assurance Engineer. Your task is to analyze the provided software requirements 
@@ -57,10 +55,14 @@ if st.button("Generate QA Report", type="primary"):
             Ensure you cover both valid and invalid partitions/boundaries.
             """
             
-            # Call Gemini API with a loading spinner
+            full_prompt = f"{system_prompt}\n\nHere are the requirements to analyze:\n\n{requirements_text}"
+            
             with st.spinner("Analyzing requirements and writing test cases... ⏳"):
-                full_prompt = f"{system_prompt}\n\nHere are the requirements to analyze:\n\n{requirements_text}"
-                response = model.generate_content(full_prompt)
+                # Call Gemini API using the new syntax
+                response = client.models.generate_content(
+                    model='gemini-1.5-pro',
+                    contents=full_prompt
+                )
             
             # Display Results
             st.success("✅ Generation Complete!")
