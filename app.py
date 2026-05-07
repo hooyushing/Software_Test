@@ -7,19 +7,25 @@ import networkx as nx
 class AutoTestDesignEngine:
     def __init__(self, api_key):
         self.client = genai.Client(api_key=api_key)
-        self.model_name = 'gemini-2.5-flash-lite'
+        self.model_name = 'gemini-2.5-flash'
+        # UPDATED: The prompt now demands an array of 'analyzed_requirements'
         self.system_prompt = """
         You are an expert QA Engineer following ISTQB and ISO 29119-4 standards.
         Output ONLY a valid JSON object. Do not include markdown formatting like ```json.
         JSON Structure exactly like this:
         {
-            "parsed_requirement": { "components": ["List of identified inputs, ranges, and conditions"] },
-            "risk_analysis": { "score": 8, "priority": "High", "justification": "Brief reason" },
-            "black_box_tests": [
-                { "id": "TC_BB_001", "technique": "BVA", "input": "Specific test data", "expected_oracle": "Expected result", "type": "Positive" }
-            ],
-            "state_transitions": [
-                { "source": "State_A", "target": "State_B", "trigger": "Action that causes transition" }
+            "analyzed_requirements": [
+                {
+                    "requirement_snippet": "A short 5-10 word snippet of the requirement",
+                    "parsed_components": ["List of identified inputs, ranges, and conditions"],
+                    "risk_analysis": { "score": 8, "priority": "High", "justification": "Brief reason" },
+                    "black_box_tests": [
+                        { "id": "TC_BB_001", "technique": "BVA", "input": "Specific test data", "expected_oracle": "Expected result", "type": "Positive" }
+                    ],
+                    "state_transitions": [
+                        { "source": "State_A", "target": "State_B", "trigger": "Action that causes transition" }
+                    ]
+                }
             ]
         }
         """
@@ -40,7 +46,7 @@ class AutoTestDesignEngine:
     def analyze_and_generate(self, raw_requirement: str) -> dict:
         prompt = f"""
         {self.system_prompt}
-        Analyze the following software requirement(s):
+        Analyze the following software requirement(s) individually:
         "{raw_requirement}"
         """
         return self._call_model(prompt)
@@ -48,17 +54,10 @@ class AutoTestDesignEngine:
     def refine_artifacts(self, raw_requirement: str, current_json: dict, user_feedback: str) -> dict:
         prompt = f"""
         {self.system_prompt}
-        
         Original Requirement: "{raw_requirement}"
-        
-        Current Test Suite JSON:
-        {json.dumps(current_json)}
-        
-        USER FEEDBACK / INSTRUCTIONS FOR IMPROVEMENT:
-        "{user_feedback}"
-        
-        Apply the user's feedback to improve, expand, or fix the Current Test Suite. 
-        Return the ENTIRE updated suite following the exact required JSON structure.
+        Current Test Suite JSON: {json.dumps(current_json)}
+        USER FEEDBACK: "{user_feedback}"
+        Apply the user's feedback. Return the ENTIRE updated suite following the exact required JSON structure.
         """
         return self._call_model(prompt)
 
@@ -145,7 +144,7 @@ final_requirement_text = ""
 with tab1:
     req_input = st.text_area(
         "Paste your software requirement here:", 
-        "Example: The checkout system must accept discount codes. If valid, apply a 10% discount and move to the Payment state. If invalid, remain in the Cart state.",
+        "Example:\n1. The system must accept codes that are exactly 8 chars long.\n2. Passwords must contain a special character.",
         height=100
     )
     if req_input: final_requirement_text = req_input
@@ -156,7 +155,9 @@ with tab2:
         if uploaded_file.name.endswith('.csv'):
             df = pd.read_csv(uploaded_file)
             target_col = st.selectbox("Select column containing requirements:", df.columns)
-            final_requirement_text = "\n".join(df[target_col].dropna().astype(str).tolist())
+            # UPDATED: Number each row so the AI knows they are distinct requirements
+            req_list = df[target_col].dropna().astype(str).tolist()
+            final_requirement_text = "\n".join([f"Req {i+1}: {text}" for i, text in enumerate(req_list)])
         elif uploaded_file.name.endswith('.txt'):
             final_requirement_text = uploaded_file.read().decode("utf-8")
 
@@ -177,39 +178,65 @@ if st.session_state.results:
     results = st.session_state.results
     engine = AutoTestDesignEngine(api_key=api_key)
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.success("### FR 2.0: Risk Analysis")
-        st.metric(label="Risk Score", value=f"{results['risk_analysis']['score']} / 10")
-        st.write(f"**Priority:** {results['risk_analysis']['priority']}")
-    with col2:
-        st.info("### FR 1.1: Parsed Components")
-        for comp in results['parsed_requirement']['components']:
-            st.markdown(f"- {comp}")
+    # Extract the array of requirements
+    reqs_array = results.get("analyzed_requirements", [])
+    
+    # --- UPDATED FR 1.1 & 2.0 UI: Render a Table instead of a single metric ---
+    st.success("### FR 1.1 & 2.0: Risk Analysis & Component Parsing (Per Requirement)")
+    
+    risk_table_data = []
+    all_bb_tests = []
+    all_transitions = []
+    
+    for req in reqs_array:
+        # Build Risk Table Row
+        risk_table_data.append({
+            "Requirement Snippet": req.get("requirement_snippet", ""),
+            "Risk Score": req.get("risk_analysis", {}).get("score", "N/A"),
+            "Priority": req.get("risk_analysis", {}).get("priority", "N/A"),
+            "Justification": req.get("risk_analysis", {}).get("justification", ""),
+            "Parsed Components": ", ".join(req.get("parsed_components", []))
+        })
+        
+        # Aggregate Tests for the lower sections, adding the snippet so we know which req it belongs to
+        for t in req.get("black_box_tests", []):
+            t["Source Req"] = req.get("requirement_snippet", "")
+            all_bb_tests.append(t)
+            
+        all_transitions.extend(req.get("state_transitions", []))
+
+    # Display the new Risk Analysis Table
+    if risk_table_data:
+        df_risk = pd.DataFrame(risk_table_data)
+        st.dataframe(df_risk, use_container_width=True)
+    else:
+        st.warning("No requirements were successfully parsed.")
 
     st.divider()
 
     st.subheader("FR 3.0 & 5.0: Black-Box Test Cases")
-    raw_bb_tests = results['black_box_tests']
-    optimized_bb_tests = engine.optimize_test_suite(raw_bb_tests, optimization_choice)
+    optimized_bb_tests = engine.optimize_test_suite(all_bb_tests, optimization_choice)
     df_bb_tests = pd.DataFrame(optimized_bb_tests)
+    # Reorder columns to put Source Req first
+    if not df_bb_tests.empty and "Source Req" in df_bb_tests.columns:
+        cols = ["Source Req"] + [col for col in df_bb_tests.columns if col != "Source Req"]
+        df_bb_tests = df_bb_tests[cols]
     st.dataframe(df_bb_tests, use_container_width=True)
 
     st.divider()
 
     st.subheader("FR 4.0: White-Box Test Modeling & Cases")
-    transitions = results.get('state_transitions', [])
     col_diagram, col_table = st.columns([1, 2])
     
     with col_diagram:
         st.write("**Visual State Transition Diagram**")
-        dot_source = engine.generate_state_diagram_dot(transitions)
+        dot_source = engine.generate_state_diagram_dot(all_transitions)
         if dot_source: st.graphviz_chart(dot_source)
         else: st.write("No distinct states identified.")
 
     with col_table:
         st.write("**Generated White-Box Test Cases (All-Paths Coverage)**")
-        wb_tests = engine.generate_white_box_test_cases(transitions)
+        wb_tests = engine.generate_white_box_test_cases(all_transitions)
         df_wb_tests = pd.DataFrame(wb_tests)
         if not df_wb_tests.empty: st.dataframe(df_wb_tests, use_container_width=True)
         else: st.write("No distinct paths identified.")
@@ -219,7 +246,7 @@ if st.session_state.results:
     st.subheader("🗣️ Iterate & Improve")
     st.markdown("Not satisfied with the suite? Tell the AI what to change, add, or remove.")
     
-    user_feedback = st.text_input("e.g., 'Add SQL injection tests', 'Focus more on boundary limits'")
+    user_feedback = st.text_input("e.g., 'Make the risk scores higher', 'Add negative test cases'")
     
     if st.button("Apply Feedback", type="secondary"):
         with st.spinner("Refining test suite based on your feedback..."):
