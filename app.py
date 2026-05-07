@@ -1,4 +1,7 @@
+
+
 import streamlit as st
+st.write("Hello! The app is successfully reading this file.")
 from google import genai
 import json
 import pandas as pd
