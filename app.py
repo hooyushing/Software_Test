@@ -7,7 +7,7 @@ import networkx as nx
 class AutoTestDesignEngine:
     def __init__(self, api_key):
         self.client = genai.Client(api_key=api_key)
-        self.model_name = 'gemini-2.5-flash'
+        self.model_name = 'gemini-2.5-flash-lite'
 
     def analyze_and_generate(self, raw_requirement: str) -> dict:
         prompt = f"""
