@@ -1,15 +1,15 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 import json
 import pandas as pd
 import networkx as nx
-from io import BytesIO
 
 class AutoTestDesignEngine:
     def __init__(self, api_key):
-        genai.configure(api_key=api_key)
-        # Using Gemini 1.5 Flash for fast, structured JSON generation
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        # Initialize the NEW Google GenAI client
+        self.client = genai.Client(api_key=api_key)
+        # Using the current standard fast model
+        self.model_name = 'gemini-1.5-flash'
 
     def analyze_and_generate(self, raw_requirement: str) -> dict:
         """
@@ -50,15 +50,19 @@ class AutoTestDesignEngine:
         }}
         """
         
-        response = self.model.generate_content(
-            prompt,
-            generation_config={"response_mime_type": "application/json"}
-        )
-        
         try:
+            # Use the NEW generate_content syntax
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config={'response_mime_type': 'application/json'}
+            )
             return json.loads(response.text)
         except json.JSONDecodeError:
-            st.error("Failed to parse LLM output. Ensure the API key is correct and try again.")
+            st.error("Failed to parse LLM output. The model did not return valid JSON.")
+            return None
+        except Exception as e:
+            st.error(f"API Error: {e}")
             return None
 
     def optimize_test_suite(self, test_cases: list, optimization_strategy: str = "Minimize Redundancy") -> list:
@@ -72,14 +76,11 @@ class AutoTestDesignEngine:
         df = pd.DataFrame(test_cases)
         
         if optimization_strategy == "Minimize Redundancy":
-            # Keep only one positive and one negative test per technique (e.g., limits EP bloating)
             optimized_df = df.drop_duplicates(subset=['technique', 'type'], keep='first')
         elif optimization_strategy == "Risk-Based (High/Medium Only)":
-            # In a real scenario, tests might have individual risk weights. 
-            # Here we prioritize keeping boundary cases over general equivalence partitions.
             optimized_df = df[df['technique'].isin(['BVA', 'Decision Table'])]
             if optimized_df.empty: 
-                optimized_df = df # Fallback if no BVA exists
+                optimized_df = df 
         else:
             optimized_df = df
             
@@ -97,7 +98,6 @@ class AutoTestDesignEngine:
         for t in transitions:
             G.add_edge(t['source'], t['target'], trigger=t['trigger'])
 
-        # Algorithmic logic to identify graph entry points and terminal states (dead ends).
         start_nodes = [n for n, d in G.in_degree() if d == 0]
         dead_ends = [n for n, d in G.out_degree() if d == 0]
 
@@ -108,14 +108,10 @@ class AutoTestDesignEngine:
 
         test_paths = []
         
-        # Calculate valid test sequences. 
-        # Using all_simple_paths prevents the generator from getting caught in cyclical "spider traps"
-        # and ensures it successfully routes toward valid dead ends.
         for start in start_nodes:
             for end in dead_ends:
                 if start != end:
                     for path in nx.all_simple_paths(G, source=start, target=end):
-                        # Construct a readable sequence: State A -> (Trigger) -> State B
                         path_str = []
                         for i in range(len(path)-1):
                             u, v = path[i], path[i+1]
@@ -203,7 +199,6 @@ if st.button("Generate Test Design Artifacts", type="primary"):
                 st.divider()
                 st.subheader("FR 6.0: Artifact Export")
                 
-                # Convert DataFrame to CSV for download
                 csv = df_tests.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="Download Test Cases as CSV",
