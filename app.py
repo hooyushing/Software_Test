@@ -7,7 +7,7 @@ import networkx as nx
 class AutoTestDesignEngine:
     def __init__(self, api_key):
         self.client = genai.Client(api_key=api_key)
-        self.model_name = 'gemini-2.5-flash'
+        self.model_name = 'gemini-2.5-flash-lite'
         self.system_prompt = """
         You are an expert QA Engineer following ISTQB and ISO 29119-4 standards.
         Output ONLY a valid JSON object. Do not include markdown formatting like ```json.
