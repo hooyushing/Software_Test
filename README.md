@@ -8,40 +8,31 @@ By leveraging the Google Gemini API, this tool automatically ingests raw softwar
 
 ## ✨ Key Features (Assignment Requirements)
 
-* 
-**FR 1.0 (Input & Ingestion):** Supports direct user input, plain text, and file uploads (CSV) for software requirement ingestion.
+* **FR 1.0 (Input & Ingestion):** Supports direct user input, plain text, and file uploads (CSV) for software requirement ingestion.
 
 
-* 
-**FR 1.1 (Requirement Structuring):** Automatically parses and tokenizes raw text to identify key components such as Input Fields, Data Ranges, Conditions, and Expected Actions.
+* **FR 1.1 (Requirement Structuring):** Automatically parses and tokenizes raw text to identify key components such as Input Fields, Data Ranges, Conditions, and Expected Actions.
 
 
-* 
-**FR 2.0 (Risk Analysis & Prioritization):** Evaluates imported requirements to assign a Risk Score and a Test Priority (High, Medium, Low).
+* **FR 2.0 (Risk Analysis & Prioritization):** Evaluates imported requirements to assign a Risk Score and a Test Priority (High, Medium, Low).
 
 
-* 
-**FR 3.0 (Black-Box Test Design):** Automatically applies at least three core Black-Box techniques from ISO 29119-4, including Equivalence Partitioning, Boundary Value Analysis, and Decision Tables.
+* **FR 3.0 (Black-Box Test Design):** Automatically applies at least three core Black-Box techniques from ISO 29119-4, including Equivalence Partitioning, Boundary Value Analysis, and Decision Tables.
 
 
-* 
-**FR 4.0 (White-Box Test Modeling):** Models system behavior using State Transition Diagrams and generates optimal test sequences for All States coverage.
+* **FR 4.0 (White-Box Test Modeling):** Models system behavior using State Transition Diagrams and generates optimal test sequences for All States coverage.
 
 
-* 
-**FR 5.0 (Test Oracle Generation):** Synthesizes the Expected Result for given requirements and specific test data dynamically.
+* **FR 5.0 (Test Oracle Generation):** Synthesizes the Expected Result for given requirements and specific test data dynamically.
 
 
-* 
-**FR 6.0 (Output & Export):** Generates test artifacts (Test Cases, Test Suites, Risk Scores) in a structured CSV format suitable for import into Test Management Tools.
+* **FR 6.0 (Output & Export):** Generates test artifacts (Test Cases, Test Suites, Risk Scores) in a structured CSV format suitable for import into Test Management Tools.
 
 
-* 
-**FR 7.0 (Test Suite Optimization):** Features optimization tools to prioritize or minimize the generated Test Suite based on risk or coverage efficiency.
+* **FR 7.0 (Test Suite Optimization):** Features optimization tools to prioritize or minimize the generated Test Suite based on risk or coverage efficiency.
 
 
-* 
-**Interactive Validation (Human-in-the-Loop):** Allows the designer to interactively review, revise, and change design items during the testing process.
+* **Interactive Validation (Human-in-the-Loop):** Allows the designer to interactively review, revise, and change design items during the testing process.
 
 
 
